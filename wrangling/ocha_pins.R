@@ -41,6 +41,17 @@ for(i in file_list){
     # printing loop value
     print(paste("Completed wrangling the file for:", file_year))
 }
+# converting to long dataframe
+out_df <- all_df %>%
+    pivot_longer(!Plans, names_to = "Plan type", values_to = "PiNs") %>%
+    drop_na("PiNs") %>%
+    separate_wider_delim(`Plan type`, " ", 
+                         names = c("Plan type", "Year")) %>%
+    select(Plans, Year, `Plan type`, PiNs) %>%
+    # adding iso country code
+    mutate(iso_code = countryname(Plans, destination = 'iso3c'))
 
 # writing to csv file
-write.csv(all_df, file.path(output_dir, "ocha_pins.csv"))
+write.csv(out_df, 
+          file.path(output_dir, "ocha_pins.csv"), 
+          row.names = F)
