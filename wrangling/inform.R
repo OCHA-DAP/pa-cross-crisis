@@ -8,7 +8,10 @@ library(lubridate)
 ###############################
 
 # link to the Publications/cross_crisis/data folder on your machine
-data_dir <- Sys.getenv("CC_DATA_DIR")
+data_dir <- file.path(
+    Sys.getenv("CC_DIR"),
+    "data"
+)
 
 #################################
 #### READ IN THE DATA FRAMES ####
