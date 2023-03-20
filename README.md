@@ -27,3 +27,4 @@ specified below:
 
 1. IRC Emergency Watchlist (manually curated)
 2. INFORM Severity
+3. INFORM Risk
