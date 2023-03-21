@@ -21,31 +21,32 @@ input_dir <- file.path(
 ##########################
 
 df <- read_excel(
-    file.path(
+    path = file.path(
         input_dir,
-        "inform_risk.xlsx"
-    )
+        "CERF UFE 2023-I_CIRV and Funding_Feb 2023.xlsx"
+    ),
+    sheet = "CERF UFE 2023-I All Data",
+    skip = 2,
+    na = "-"
 )
 
 df %>%
-    rename_with(
-        tolower
+    select(
+        iso3 = `ISO3 Country Code`,
+        matches("[0-9]{4}R[1-2]{1}")
+    ) %>%
+    pivot_longer(
+        -iso3,
+        names_to = c("year", "round"),
+        names_sep = "R",
+        values_to = "cerf_cirv"
     ) %>%
     filter(
-        indicatorid == "INFORM"
-    ) %>%
-    select(
-        iso3,
-        year = informyear,
-        inform_risk = indicatorscore
-    ) %>%
-    arrange(
-        iso3,
-        year
+        iso3 != "TEST"
     ) %>%
     write_csv(
         file.path(
             data_dir,
-            "inform_risk.csv"
+            "cerf_cirv.csv"
         )
     )
