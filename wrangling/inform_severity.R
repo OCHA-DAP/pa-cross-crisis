@@ -67,6 +67,6 @@ df <- map(
 
 write_csv(
     df,
-    file.path(data_dir, "inform.csv")
+    file.path(data_dir, "inform_severity.csv")
 )
     

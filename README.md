@@ -26,4 +26,6 @@ The data sources are pulled together in a file under `wrangled` unless otherwise
 specified below:
 
 1. IRC Emergency Watchlist (manually curated)
-2. INFORM Severity
+2. [INFORM Severity](wrangling/inform_severity.R)
+3. [INFORM Risk](wrangling/inform_risk.R)
+4. [CERF CIRV](wrangling/cerf_cirv.R)
