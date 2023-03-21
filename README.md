@@ -31,3 +31,4 @@ specified below:
 4. [CERF CIRV](wrangling/cerf_cirv.R)
 5. [OCHA PINs](wrangling/ocha_pins.R)
 6. [ACAPS Risk List](wrangling/acaps_risk.R)
+7. [ICG Crisis Watch](wrangling/crisis_watch.R)
