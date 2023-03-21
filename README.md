@@ -29,3 +29,4 @@ specified below:
 2. [INFORM Severity](wrangling/inform_severity.R)
 3. [INFORM Risk](wrangling/inform_risk.R)
 4. [CERF CIRV](wrangling/cerf_cirv.R)
+5. [OCHA PINs](wrangling/ocha_pins.R)
