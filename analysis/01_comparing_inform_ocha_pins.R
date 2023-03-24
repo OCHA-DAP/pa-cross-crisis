@@ -65,7 +65,8 @@ monthly_df <- all_df %>%
     summarise(all_cor = cor(inform_severity, pins, method = "spearman"),
               all_pvalue = cor.test(inform_severity, pins, method = "spearman", exact = F)$p.value)
 monthly_df %>%
+    mutate(year = as.factor(year)) %>%
     ggplot(aes(x=month, y=all_cor, fill=year)) + 
-    geom_bar(stat="identity", position = position_dodge(), width=0.9) + 
+    geom_bar(stat="identity", position = position_dodge2(preserve = "single")) + 
     theme_hdx() + 
     scale_color_hdx()
