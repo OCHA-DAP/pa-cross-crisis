@@ -45,9 +45,10 @@ yearly_df <- stat_df %>%
               max_pvalue = cor.test(max_inf_sev, pins, method = "spearman", exact = F)$p.value)
 
 yr <- yearly_df %>%
-    pivot_longer(cols = c("mean_cor", "max_cor"), names_to = "stats", values_to = "cor") %>%
-    ggplot(aes(x=year, y=cor, fill=stats)) + 
-    geom_bar(stat="identity", position = "dodge")
+    pivot_longer(cols = c("mean_cor", "max_cor"), names_to = "stats", values_to = "correlation") %>%
+    ggplot(aes(x=year, y=correlation, fill=stats)) + 
+    geom_bar(stat="identity", position = "dodge") + 
+    labs(title = "Correlation between INFORM and OCHA PINs over the years")
 yr + theme_hdx() + scale_color_hdx()
 
 # using all monthly values
@@ -68,5 +69,31 @@ monthly_df %>%
     mutate(year = as.factor(year)) %>%
     ggplot(aes(x=month, y=all_cor, fill=year)) + 
     geom_bar(stat="identity", position = position_dodge2(preserve = "single")) + 
+    labs(title = "Correlation between INFORM and OCHA PINs by month") +
     theme_hdx() + 
     scale_color_hdx()
+
+# checking if for each year, the same countries are in the top ten
+pin_top10 <- stat_df %>%
+    group_by(year) %>%
+    slice_max(pins, n=10)
+
+inform_top10mean <- stat_df %>%
+    group_by(year) %>%
+    slice_max(mean_inf_sev, n=10)
+
+inform_top10max <- stat_df %>%
+    group_by(year) %>%
+    slice_max(max_inf_sev, n=10)
+
+top10_df <- data.frame(year = unique(stat_df$year))
+for(yr in unique(stat_df$year)){
+    yr_index <- which(yr == top10_df$year)
+    imean_vs_imax <- (inform_top10mean$iso3[inform_top10mean$year == yr]) %in% (inform_top10max$iso3[inform_top10max$year == yr])
+    imean_vs_pin <- (inform_top10mean$iso3[inform_top10mean$year == yr]) %in% (pin_top$iso3[pin_top$year == yr])
+    imax_vs_pin <- (inform_top10max$iso3[inform_top10max$year == yr]) %in% (pin_top$iso3[pin_top$year == yr])
+    top10_df$informmean_vs_informmax[yr_index] <- sum(imean_vs_imax)/length(imean_vs_imax)
+    top10_df$informmean_vs_pin[yr_index] <- sum(imean_vs_pin)/length(imean_vs_pin)
+    top10_df$informmax_vs_pin[yr_index] <- sum(imax_vs_pin)/length(imax_vs_pin)
+}
+write_csv(top10_df, "C:/Users/pauni/Desktop/Work/OCHA/CrossCrisis/top10_informvpins.csv")
