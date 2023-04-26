@@ -1,6 +1,7 @@
 library(tidyverse)
 library(readxl)
 library(countrycode)
+library(wpp2022)
 
 ###############################
 #### ENVIRONMENT VARIABLES ####
@@ -26,7 +27,7 @@ input_dir <- file.path(
 # reading in files
 file_list <- list.files(input_dir, pattern = "Plan")
 
-map(
+df_pin <- map(
     .x = file_list,
     .f = \(fn) {
         df <- read_excel(file.path(input_dir, fn), sheet = "Export data")
@@ -49,6 +50,39 @@ map(
         iso3,
         year,
         plan_type
+    ) %>%
+    type_convert() %>%
+    filter(
+        !is.na(iso3)
+    )
+
+# get population data for rough PiN percentiles
+
+data(pop1dt)
+data(popproj1dt)
+
+popproj1dt %>%
+    bind_rows(
+        pop1dt
+    ) %>%
+    mutate(
+        iso3 = countrycode(country_code, origin = "unpd", destination = "iso3c")
+    ) %>%
+    select(
+        iso3,
+        year,
+        pop
+    ) %>%
+    right_join(
+        df_pin,
+        by = c("iso3", "year")
+    ) %>%
+    mutate(
+        pin_pct = pin / pct
+    ) %>%
+    arrange(
+        iso3,
+        year
     ) %>%
     write_csv(
         file.path(
