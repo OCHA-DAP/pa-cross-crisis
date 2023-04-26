@@ -29,7 +29,8 @@ link_download <- function(path) {
     df <- read_excel(
         path = f,
         sheet = "INFORM Severity - country",
-        skip = 1
+        skip = 1,
+        na = "x"
     ) %>%
         tail(-2) %>%
         mutate(
@@ -66,7 +67,7 @@ df <- map(
     )
 
 write_csv(
-    df,
+    type_convert(df),
     file.path(data_dir, "inform_severity.csv")
 )
     
