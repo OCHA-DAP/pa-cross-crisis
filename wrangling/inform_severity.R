@@ -64,6 +64,19 @@ df <- map(
         crisis_complexity = `Complexity of the crisis`,
         society_safety = `Society and safety`,
         operating_environment = `Operating environment`
+    ) %>%
+    mutate(
+        year = lubridate::year(date),
+        month = lubridate::month(date),
+        .after = date
+    ) %>%
+    group_by(
+        year,
+        month
+    ) %>%
+    mutate(
+        inform_severity_rank = min_rank(desc(inform_severity)),
+        inform_pin_rank = min_rank(desc(pin)),
     )
 
 write_csv(

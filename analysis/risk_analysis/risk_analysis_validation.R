@@ -1,5 +1,3 @@
-library(tidyverse)
-library(readxl)
 library(gghdx)
 gghdx()
 
@@ -13,111 +11,13 @@ plot_dir <- file.path(
     "plots"
 )
 
-###################
-#### READ DATA ####
-###################
-
-df_irc <- read_excel(
+source(
     file.path(
-        data_dir,
-        "irc_emergency_watchlist.xlsx"
-    ),
-    na = "-"
-) %>%
-    mutate(
-        irc_listed = TRUE
-    )
-
-df_inform_sev <- read_csv(
-    file.path(
-        data_dir,
-        "inform_severity.csv"
+        "analysis",
+        "risk_analysis",
+        "risk_analysis_data.R"
     )
 )
-
-df_inform_risk <- read_csv(
-    file.path(
-        data_dir,
-        "inform_risk.csv"
-    )
-)
-
-###################
-#### JOIN DATA ####
-###################
-
-df_sev_clean <- df_inform_sev %>%
-    transmute(
-        iso3,
-        date,
-        year = year(date),
-        month = month(date),
-        inform_severity
-    ) %>%
-    arrange(
-        iso3,
-        date
-    )
-
-df_joined <- map(
-    .x = 0:2,
-    .f = \(x) {
-        start_year <- 2020 + x
-        end_year <- start_year + 1
-        
-        df_sev_clean %>%
-            filter(
-                year %in% c(start_year, end_year)
-            ) %>%
-            group_by(iso3) %>%
-            filter(
-                any(year == start_year & month == 12) 
-            ) %>%
-            mutate(
-                series = ifelse(
-                    year == start_year,
-                    month,
-                    month + 12
-                ),
-                inform_severity_norm = inform_severity / inform_severity[year == start_year & month == 12],
-                irc_year = end_year
-            )
-    }
-) %>%
-    list_rbind() %>%
-    ungroup() %>%
-    left_join(
-        df_irc,
-        by = c(
-            "iso3" = "iso3",
-            "irc_year" = "year"
-        )
-    ) %>%
-    left_join(
-        df_inform_risk,
-        by = c(
-            "iso3" = "iso3",
-            "irc_year" = "year"
-        )
-    ) %>%
-    mutate(
-        series_id = paste0(
-            ifelse(
-                irc_listed,
-                "aaa",
-                "zzz"
-            ),
-            iso3,
-            irc_year,
-            sep = "-"
-        ),
-        irc_listed = replace_na(irc_listed, FALSE),
-        irc_rank = case_when(
-            !is.na(rank) ~ "Ranked",
-            irc_listed ~ "Not ranked",
-            TRUE ~ "Not listed"
-        )
-    )
 
 #########################################
 #### PLOTTING IRC WATCHLIST WITH SEV ####
@@ -210,8 +110,6 @@ ggsave(
 
 # look across the years we have full data for
 # without normalizing
-
-
 
 df_sev_clean %>%
     left_join(
@@ -437,7 +335,6 @@ df_joined %>%
         legend.text = element_text(size = 14)
     )
 
-
 ggsave(
     file.path(
         plot_dir,
@@ -448,6 +345,101 @@ ggsave(
 )
 
 
+# now look at INFORM PiN
+
+
+# clearly the selection of countries are the most severe countries
+# let's look at a scatter plot
+# but this time add in rank
+
+df_joined %>%
+    filter(
+        series %in% c(12, 24)
+    ) %>%
+    mutate(
+        time = ifelse(
+            series == 12,
+            "Start",
+            "End"
+        )
+    ) %>%
+    select(
+        iso3, year = irc_year, inform_pin, irc_rank, rank, time
+    ) %>%
+    pivot_wider(
+        names_from = time,
+        values_from = inform_pin
+    ) %>%
+    ggplot(
+        aes(
+            x = End,
+            y = Start
+        )
+    ) +
+    geom_polygon(
+        data = data.frame(
+            End = c(0, 5, 5),
+            Start = c(0, 0, 5)
+        ),
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_polygon(
+        data = data.frame(
+            End = c(0, 0, 5),
+            Start = c(0, 5, 5)
+        ),
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_point(
+        aes(
+            color = irc_rank
+        ),
+        size = 1
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            End = c(0.6, 0.4),
+            Start = c(0.4, 0.6),
+            label = c("Deterioration", "Improvement")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        angle = 42,
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    scale_y_continuous_hdx() +
+    coord_cartesian(clip = "off") +
+    scale_color_manual(
+        values = unname(hdx_hex(c("gray-light", "tomato-hdx", "gray-black"))),
+        labels = c("Not on watchlist", "On IRC watchlist", "Ranked on watchlist"),
+        name = ""
+    ) +
+    labs(
+        x = "INFORM PiN (end of alert year)",
+        y = "INFORM PiN (end of previous year)",
+        title = "Change in INFORM PiN across IRC watch year"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20),
+        legend.text = element_text(size = 14)
+    )
+
+
+ggsave(
+    file.path(
+        plot_dir,
+        "irc_inform_pin_diagonal_ranked.png"
+    ),
+    height = 4,
+    width = 4
+)
+
 
 ###################################################
 #### COMPARING INFORM RISK & AND IRC WATCHLIST ####
@@ -456,19 +448,7 @@ ggsave(
 # generate a plot of all years normalized
 # to see general pattern
 
-df_sev <- df_joined %>%
-    group_by(
-        iso3,
-        irc_year
-    ) %>%
-    summarize(
-        inform_sev_change = inform_severity[series == 24] - inform_severity[series == 12],
-        inform_risk = unique(inform_risk),
-        irc_rank = unique(irc_rank),
-        .groups = "drop"
-    )
-
-p_inform_sev <- df_sev %>%
+p_inform_sev <- df_change_plot %>%
     ggplot(
         aes(
             x = inform_sev_change,
@@ -522,7 +502,7 @@ p_inform_sev <- df_sev %>%
 ggsave(
     file.path(
         plot_dir,
-        "irc_severity_change.png"
+        "risk_severity_change.png"
     ),
     plot = p_inform_sev,
     height = 3,
@@ -548,12 +528,105 @@ p_inform_sev +
 ggsave(
     file.path(
         plot_dir,
-        "irc_severity_change_irc.png"
+        "risk_severity_change_irc.png"
     ),
     height = 3,
     width = 4
 )
     
+#######################################################
+#### COMPARING INFORM RISK & PIN AND IRC WATCHLIST ####
+#######################################################
+
+# generate a plot of all years normalized
+# to see general pattern
+
+p_inform_pin <- df_change_plot %>%
+    ggplot(
+        aes(
+            x = inform_pin_change,
+            y = inform_risk
+        )
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = 0,
+        ymin = -Inf,
+        ymax = Inf,
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_rect(
+        xmin = 0,
+        xmax = Inf,
+        ymin = -Inf,
+        ymax = Inf,
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_point(
+        color = hdx_hex("gray-light"),
+        size = 1
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            inform_pin_change = c(-0.3, 0.3),
+            inform_risk = 1.8,
+            label = c("Improvement", "Deterioration")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    labs(
+        x = "Change in INFORM PiN",
+        y = "INFORM Risk",
+        title = "Change in INFORM PiN relative to INFORM Risk",
+        subtitle = "Measured from December of the previous year to December of the risk year"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20)
+    )
+
+ggsave(
+    file.path(
+        plot_dir,
+        "risk_pin_change.png"
+    ),
+    plot = p_inform_pin,
+    height = 4,
+    width = 5
+)
+
+# and add on the IRC watchlist
+
+p_inform_pin +
+    geom_point(
+        aes(
+            color = irc_rank
+        ),
+        size = 1
+    ) +
+    scale_color_manual(
+        values = unname(hdx_hex(c("gray-light", "tomato-hdx", "gray-black"))),
+        labels = c("Not on watchlist", "On IRC watchlist", "Ranked on watchlist"),
+        name = ""
+    )
+
+
+ggsave(
+    file.path(
+        plot_dir,
+        "risk_pin_change_irc.png"
+    ),
+    height = 3,
+    width = 4
+)
+
 
 #########################################
 #### PLOTTING INFORM RISK & SEVERITY ####
@@ -635,7 +708,7 @@ ggsave(
 
 # inform risk
 
-df_sev %>%
+df_change_plot %>%
     mutate(
         inform_risk_grouped = case_when(
             inform_risk < 4 ~ 3,
@@ -708,7 +781,7 @@ ggsave(
 # IRC ranking
 
 
-df_sev %>%
+df_change_plot %>%
     ggplot(
         aes(
             y = inform_sev_change,
@@ -769,6 +842,232 @@ ggsave(
     file.path(
         plot_dir,
         "irc_watchlist_sev_boxplot.png"
+    ),
+    height = 3,
+    width = 4
+)
+
+
+#######################################################
+#### LOOK AT PIN DISTRIBUTIONS ACROSS SOME BINS ####
+#######################################################
+
+# inform risk
+
+df_change_plot %>%
+    mutate(
+        inform_risk_grouped = case_when(
+            inform_risk < 4 ~ 3,
+            inform_risk < 6 ~ 5,
+            inform_risk < 8 ~ 7,
+            inform_risk >= 8 ~ 9
+        )
+    ) %>%
+    ggplot(
+        aes(
+            y = inform_pin_change,
+            x = inform_risk_grouped,
+            group = inform_risk_grouped
+        )
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = 0,
+        ymax = Inf,
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = -Inf,
+        ymax = 0,
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_boxplot(
+        fill = hdx_hex("gray-light"),
+        color = hdx_hex("gray-black")
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            inform_pin_change = c(-2, 2),
+            inform_risk_grouped = 3,
+            label = c("Improvement", "Deterioration")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    labs(
+        y = "Change in INFORM PiN",
+        x = "INFORM Risk",
+        title = "Change in INFORM PiN relative to INFORM Risk",
+        subtitle = "Measured from December of the previous year to December of the risk year"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20),
+        axis.line = element_blank()
+    )
+
+ggsave(
+    file.path(
+        plot_dir,
+        "inform_pin_risk_boxplot.png"
+    ),
+    height = 3,
+    width = 4
+)
+
+# IRC ranking
+
+df_change_plot %>%
+    filter(
+        !is.na(irc_rank)
+    ) %>%
+    ggplot(
+        aes(
+            y = inform_pin_change,
+            x = irc_rank,
+            group = irc_rank
+        )
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = 0,
+        ymax = Inf,
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = -Inf,
+        ymax = 0,
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            inform_pin_change = c(-1.2, 1.2),
+            irc_rank = "Ranked",
+            label = c("Improvement", "Deterioration")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    geom_boxplot(
+        fill = hdx_hex("gray-light"),
+        color = hdx_hex("gray-black")
+    ) +
+    scale_x_discrete(
+        labels = c("Not on watchlist", "On IRC watchlist", "Ranked on watchlist"),
+        name = ""
+    ) +
+    labs(
+        y = "Change in INFORM PiN",
+        x = "IRC watchlist status",
+        title = "Change in INFORM PiN relative to the IRC Watchlist",
+        subtitle = "Measured from December of the previous year to December of the watchlist year"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20),
+        axis.line = element_blank()
+    )
+
+ggsave(
+    file.path(
+        plot_dir,
+        "irc_watchlist_pin_boxplot.png"
+    ),
+    height = 3,
+    width = 4
+)
+
+
+#########################
+#### LOOK AT FUNDING ####
+#########################
+
+
+df_change_plot %>%
+    filter(
+        !is.na(irc_rank)
+    ) %>%
+    ggplot(
+        aes(
+            y = funding_ask_change,
+            x = irc_rank,
+            group = irc_rank
+        )
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = 0,
+        ymax = Inf,
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = -Inf,
+        ymax = 0,
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            funding_ask_change = c(-1.2, 4),
+            irc_rank = "Ranked",
+            label = c("Decreased funding", "Increased funding")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    geom_boxplot(
+        fill = hdx_hex("gray-light"),
+        color = hdx_hex("gray-black")
+    ) +
+    scale_x_discrete(
+        labels = c("Not on watchlist", "On IRC watchlist", "Ranked on watchlist"),
+        name = ""
+    ) +
+    scale_y_continuous_hdx(
+        limits = c(-2, 5),
+    ) +
+    labs(
+        y = "Change in funding request",
+        x = "IRC watchlist status",
+        title = "Change in funding request relative to the IRC Watchlist",
+        subtitle = "Measured from December of the previous year to December of the watchlist year"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20),
+        axis.line = element_blank()
+    )
+
+ggsave(
+    file.path(
+        plot_dir,
+        "irc_watchlist_funding_boxplot.png"
     ),
     height = 3,
     width = 4

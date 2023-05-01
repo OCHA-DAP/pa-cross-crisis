@@ -41,19 +41,25 @@ df_pin <- map(
         iso3 = countryname(Plans, destination = "iso3c"),
         year,
         plan_type = `Plan type`,
-        pins = `People in need`
+        pin = `People in need`,
+        funding_ask = Requirements,
+        plan_type = `Plan type`
     ) %>%
     filter(
-        !is.na(pins)
-    ) %>%
-    arrange(
-        iso3,
-        year,
-        plan_type
+        !is.na(pin),
+        !is.na(iso3)
     ) %>%
     type_convert() %>%
-    filter(
-        !is.na(iso3)
+    group_by(
+        iso3,
+        year
+    ) %>%
+    summarize(
+        pin = sum(pin),
+        hrp_pin = sum(pin[plan_type == "HRP"]),
+        funding_ask = sum(funding_ask),
+        hrp_funding_ask = sum(funding_ask[plan_type == "HRP"]),
+        .groups = "drop"
     )
 
 # get population data for rough PiN percentiles
@@ -78,11 +84,21 @@ popproj1dt %>%
         by = c("iso3", "year")
     ) %>%
     mutate(
-        pin_pct = pin / pct
+        pin_pct =  pin / pop / 1000,
+        hrp_pin_pct = hrp_pin / pop / 1000
     ) %>%
     arrange(
         iso3,
         year
+    ) %>%
+    group_by(
+        year
+    ) %>%
+    mutate(
+        ocha_pin_rank = min_rank(desc(pin)),
+        ocha_pin_pct_rank = min_rank(desc(pin_pct)),
+        ocha_hrp_pin_rank = min_rank(desc(hrp_pin)),
+        ocha_hrp_pin_pct_rank = min_rank(desc(hrp_pin_pct))
     ) %>%
     write_csv(
         file.path(

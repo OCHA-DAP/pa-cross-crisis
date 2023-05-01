@@ -44,6 +44,13 @@ df %>%
     filter(
         iso3 != "TEST"
     ) %>%
+    group_by(
+        year,
+        round
+    ) %>%
+    mutate(
+        cerf_cirv_rank = min_rank(desc(cerf_cirv))
+    ) %>%
     write_csv(
         file.path(
             data_dir,
