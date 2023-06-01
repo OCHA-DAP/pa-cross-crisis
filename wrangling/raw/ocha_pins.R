@@ -55,10 +55,10 @@ df_pin <- map(
         year
     ) %>%
     summarize(
-        pin = sum(pin),
-        hrp_pin = sum(pin[plan_type == "HRP"]),
-        funding_ask = sum(funding_ask),
-        hrp_funding_ask = sum(funding_ask[plan_type == "HRP"]),
+        ocha_pin = sum(pin),
+        ocha_hrp_pin = sum(pin[plan_type == "HRP"]),
+        ocha_funding_ask = sum(funding_ask),
+        ocha_hrp_funding_ask = sum(funding_ask[plan_type == "HRP"]),
         .groups = "drop"
     )
 
@@ -84,8 +84,8 @@ popproj1dt %>%
         by = c("iso3", "year")
     ) %>%
     mutate(
-        pin_pct =  pin / pop / 1000,
-        hrp_pin_pct = hrp_pin / pop / 1000
+        ocha_pin_pct =  ocha_pin / pop / 1000,
+        ocha_hrp_pin_pct = ocha_hrp_pin / pop / 1000
     ) %>%
     arrange(
         iso3,
@@ -95,10 +95,10 @@ popproj1dt %>%
         year
     ) %>%
     mutate(
-        ocha_pin_rank = min_rank(desc(pin)),
-        ocha_pin_pct_rank = min_rank(desc(pin_pct)),
-        ocha_hrp_pin_rank = min_rank(desc(hrp_pin)),
-        ocha_hrp_pin_pct_rank = min_rank(desc(hrp_pin_pct))
+        ocha_pin_rank = min_rank(desc(ocha_pin)),
+        ocha_pin_pct_rank = min_rank(desc(ocha_pin_pct)),
+        ocha_hrp_pin_rank = min_rank(desc(ocha_hrp_pin)),
+        ocha_hrp_pin_pct_rank = min_rank(desc(ocha_hrp_pin_pct))
     ) %>%
     write_csv(
         file.path(

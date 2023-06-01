@@ -1,3 +1,4 @@
+library(tidyverse)
 library(gghdx)
 gghdx()
 
@@ -11,11 +12,17 @@ plot_dir <- file.path(
     "plots"
 )
 
-source(
+df_joined <- read_csv(
     file.path(
-        "analysis",
-        "risk_analysis",
-        "risk_analysis_data.R"
+        data_dir,
+        "risk_joined.csv"
+    )
+)
+
+df_change <- read_csv(
+    file.path(
+        data_dir,
+        "risk_change.csv"
     )
 )
 
@@ -84,7 +91,7 @@ df_joined %>%
         )
     ) +
     guides(
-        alpha = FALSE
+        alpha = "none"
     ) +
     labs(
         x = "",
@@ -111,14 +118,7 @@ ggsave(
 # look across the years we have full data for
 # without normalizing
 
-df_sev_clean %>%
-    left_join(
-        df_irc,
-        by = c("iso3", "year")
-    ) %>%
-    mutate(
-        irc_listed = replace_na(irc_listed, FALSE)
-    ) %>%
+df_joined %>%
     filter(
         year %in% c(2021, 2022)
     ) %>%
@@ -241,7 +241,6 @@ df_joined %>%
         plot.subtitle = element_text(size = 20),
         legend.text = element_text(size = 14)
     )
-
 
 ggsave(
     file.path(
@@ -440,7 +439,6 @@ ggsave(
     width = 4
 )
 
-
 ###################################################
 #### COMPARING INFORM RISK & AND IRC WATCHLIST ####
 ###################################################
@@ -448,7 +446,7 @@ ggsave(
 # generate a plot of all years normalized
 # to see general pattern
 
-p_inform_sev <- df_change_plot %>%
+p_inform_sev <- df_change %>%
     ggplot(
         aes(
             x = inform_sev_change,
@@ -541,7 +539,7 @@ ggsave(
 # generate a plot of all years normalized
 # to see general pattern
 
-p_inform_pin <- df_change_plot %>%
+p_inform_pin <- df_change %>%
     ggplot(
         aes(
             x = inform_pin_change,
@@ -708,7 +706,7 @@ ggsave(
 
 # inform risk
 
-df_change_plot %>%
+df_change%>%
     mutate(
         inform_risk_grouped = case_when(
             inform_risk < 4 ~ 3,
@@ -781,7 +779,10 @@ ggsave(
 # IRC ranking
 
 
-df_change_plot %>%
+df_change %>%
+    filter(
+        !is.na(irc_rank)
+    ) %>%
     ggplot(
         aes(
             y = inform_sev_change,
@@ -854,7 +855,7 @@ ggsave(
 
 # inform risk
 
-df_change_plot %>%
+df_change %>%
     mutate(
         inform_risk_grouped = case_when(
             inform_risk < 4 ~ 3,
@@ -926,7 +927,7 @@ ggsave(
 
 # IRC ranking
 
-df_change_plot %>%
+df_change %>%
     filter(
         !is.na(irc_rank)
     ) %>%
@@ -1000,14 +1001,13 @@ ggsave(
 #### LOOK AT FUNDING ####
 #########################
 
-
-df_change_plot %>%
+df_change %>%
     filter(
         !is.na(irc_rank)
     ) %>%
     ggplot(
         aes(
-            y = funding_ask_change,
+            y = ocha_funding_ask_change,
             x = irc_rank,
             group = irc_rank
         )
@@ -1028,7 +1028,7 @@ df_change_plot %>%
     ) +
     geom_text_hdx(
         data = data.frame(
-            funding_ask_change = c(-1.2, 4),
+            ocha_funding_ask_change = c(-1.2, 4),
             irc_rank = "Ranked",
             label = c("Decreased funding", "Increased funding")
         ),
@@ -1070,5 +1070,326 @@ ggsave(
         "irc_watchlist_funding_boxplot.png"
     ),
     height = 3,
+    width = 4
+)
+
+##########################
+#### LOOK AT OCHA PIN ####
+##########################
+
+# general pattern for OCHA PiN and IRC
+
+df_joined %>%
+    filter(
+        series %in% c(12, 24)
+    ) %>%
+    mutate(
+        time = ifelse(
+            series == 12,
+            "Start",
+            "End"
+        )
+    ) %>%
+    select(
+        iso3, year = irc_year, ocha_pin_pct, irc_rank, rank, time
+    ) %>%
+    pivot_wider(
+        names_from = time,
+        values_from = ocha_pin_pct
+    ) %>%
+    ggplot(
+        aes(
+            x = End,
+            y = Start
+        )
+    ) +
+    geom_polygon(
+        data = data.frame(
+            End = c(0, 1.6, 1.6),
+            Start = c(0, 0, 1.6)
+        ),
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_polygon(
+        data = data.frame(
+            End = c(0, 0, 1.6),
+            Start = c(0, 1.6, 1.6)
+        ),
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_point(
+        aes(
+            color = irc_rank
+        ),
+        size = 1
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            End = c(0.6, 0.4),
+            Start = c(0.4, 0.6),
+            label = c("Deterioration", "Improvement")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        angle = 42,
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    scale_y_continuous_hdx(
+        labels = scales::label_percent()
+    ) +
+    scale_x_continuous(
+        labels = scales::label_percent()
+    ) +
+    scale_color_manual(
+        values = unname(hdx_hex(c("gray-light", "tomato-hdx", "gray-black"))),
+        labels = c("Not on watchlist", "On IRC watchlist", "Ranked on watchlist"),
+        name = ""
+    ) +
+    labs(
+        x = "OCHA PiN, % of population (end of alert year)",
+        y = "OCHA PiN, % of population (end of previous year)",
+        title = "Change in OCHA PiN across IRC watch year"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20),
+        legend.text = element_text(size = 14)
+    )
+
+
+ggsave(
+    file.path(
+        plot_dir,
+        "irc_inform_ocha_pin_pct_diagonal_ranked.png"
+    ),
+    height = 4,
+    width = 4
+)
+
+# look at it as OCHA PiN % change
+
+df_change %>%
+    filter(
+        !is.na(irc_rank)
+    ) %>%
+    ggplot(
+        aes(
+            y = ocha_pin_change,
+            x = irc_rank,
+            group = irc_rank
+        )
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = 0,
+        ymax = Inf,
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = -Inf,
+        ymax = 0,
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            ocha_pin_change = c(-0.7, 0.5),
+            irc_rank = "Ranked",
+            label = c("Decreased PiN", "Increased PiN")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    coord_cartesian(
+        clip = "off"
+    ) +
+    geom_boxplot(
+        fill = hdx_hex("gray-light"),
+        color = hdx_hex("gray-black")
+    ) +
+    scale_x_discrete(
+        labels = c("Not on watchlist", "On IRC watchlist", "Ranked on watchlist"),
+        name = ""
+    ) +
+    scale_y_continuous_hdx(
+        labels = scales::label_percent()
+    ) +
+    labs(
+        y = "Change in OCHA PiN (% of population)",
+        x = "IRC watchlist status",
+        title = "Change in OCHA PiNs relative to IRC watchlist"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20),
+        axis.line = element_blank()
+    )
+
+ggsave(
+    file.path(
+        plot_dir,
+        "irc_watchlist_ocha_pin_pct_boxplot.png"
+    ),
+    height = 3,
+    width = 4
+)
+
+
+# look at INFORM Risk and OCHA PiN
+
+df_change %>%
+    ggplot(
+        aes(
+            y = ocha_pin_change,
+            x = inform_risk
+        )
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = 0,
+        ymax = Inf,
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = -Inf,
+        ymax = 0,
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            ocha_pin_change = c(-0.7, 0.5),
+            inform_risk = 1,
+            label = c("Decreased PiN", "Increased PiN")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    coord_cartesian(
+        clip = "off"
+    ) +
+    geom_point(
+        fill = hdx_hex("gray-light"),
+        color = hdx_hex("gray-black")
+    ) +
+    scale_y_continuous_hdx(
+        labels = scales::label_percent()
+    ) +
+    labs(
+        y = "Change in OCHA PiN (% of population)",
+        x = "INFORM Risk",
+        title = "Change in OCHA PiNs relative to INFORM Risk"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20),
+        axis.line = element_blank()
+    )
+
+ggsave(
+    file.path(
+        plot_dir,
+        "inform_risk_ocha_pin_pct.png"
+    ),
+    height = 4,
+    width = 4
+)
+
+
+# look at INFORM Risk and OCHA PiN - boxplot
+
+df_change %>%
+    mutate(
+        inform_risk_grouped = case_when(
+            inform_risk < 4 ~ 3,
+            inform_risk < 6 ~ 5,
+            inform_risk < 8 ~ 7,
+            inform_risk >= 8 ~ 9
+        )
+    ) %>%
+    ggplot(
+        aes(
+            y = ocha_pin_change,
+            x = inform_risk_grouped,
+            group = inform_risk_grouped
+        )
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = 0,
+        ymax = Inf,
+        fill = hdx_hex("tomato-light")
+    ) +
+    geom_rect(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = -Inf,
+        ymax = 0,
+        fill = hdx_hex("sapphire-light")
+    ) +
+    geom_text_hdx(
+        data = data.frame(
+            ocha_pin_change = c(-0.7, 0.5),
+            inform_risk_grouped = 3,
+            label = c("Decreased PiN", "Increased PiN")
+        ),
+        mapping = aes(
+            label = label
+        ),
+        fontface = "bold",
+        color = hdx_hex('gray-light'),
+        size = 7
+    ) +
+    coord_cartesian(
+        clip = "off"
+    ) +
+    geom_boxplot(
+        fill = hdx_hex("gray-light"),
+        color = hdx_hex("gray-black")
+    ) +
+    scale_y_continuous_hdx(
+        labels = scales::label_percent()
+    ) +
+    labs(
+        y = "Change in OCHA PiN (% of population)",
+        x = "INFORM Risk",
+        title = "Change in OCHA PiNs relative to INFORM Risk"
+    ) +
+    theme(
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        plot.title = element_text(size = 24),
+        plot.subtitle = element_text(size = 20),
+        axis.line = element_blank()
+    )
+
+ggsave(
+    file.path(
+        plot_dir,
+        "inform_risk_ocha_pin_pct.png"
+    ),
+    height = 4,
     width = 4
 )

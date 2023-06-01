@@ -1,3 +1,5 @@
+# wrangle data for plotting of the risk indicators
+
 library(tidyverse)
 library(readxl)
 
@@ -97,18 +99,25 @@ df_joined <- map(
 ) %>%
     list_rbind() %>%
     ungroup() %>%
-    left_join(
+    full_join(
         df_irc,
         by = c(
             "iso3" = "iso3",
             "irc_year" = "year"
         )
     ) %>%
-    left_join(
+    full_join(
         df_inform_risk,
         by = c(
             "iso3" = "iso3",
             "irc_year" = "year"
+        )
+    ) %>%
+    full_join(
+        df_pin,
+        by = c(
+            "iso3" = "iso3",
+            "year" = "year"
         )
     ) %>%
     mutate(
@@ -153,12 +162,12 @@ df_change_final <- df_pin %>%
         iso3
     ) %>%
     mutate(
-        ocha_pin_start = lag(pin_pct),
-        ocha_hrp_pin_start = lag(hrp_pin_pct),
-        ocha_pin_change = pin_pct - ocha_pin_start,
-        ocha_hrp_pin_change = hrp_pin_pct - ocha_hrp_pin_start,
-        funding_ask_change = (funding_ask - lag(funding_ask)) / lag(funding_ask),
-        hrp_funding_ask_change = (hrp_funding_ask - lag(hrp_funding_ask)) / lag(hrp_funding_ask)
+        ocha_pin_start = lag(ocha_pin_pct),
+        ocha_hrp_pin_start = lag(ocha_hrp_pin_pct),
+        ocha_pin_change = ocha_pin_pct - ocha_pin_start,
+        ocha_hrp_pin_change = ocha_hrp_pin_pct - ocha_hrp_pin_start,
+        ocha_funding_ask_change = (ocha_funding_ask - lag(ocha_funding_ask)) / lag(ocha_funding_ask),
+        ocha_hrp_funding_ask_change = (ocha_hrp_funding_ask - lag(ocha_hrp_funding_ask)) / lag(ocha_hrp_funding_ask)
     ) %>%
     filter(
         !is.na(ocha_pin_change)
@@ -168,3 +177,23 @@ df_change_final <- df_pin %>%
         by = c("iso3", "year" = "irc_year")
     )
 
+###################
+#### SAVE DATA ####
+###################
+
+write_csv(
+    df_joined,
+    file.path(
+        data_dir,
+        "risk_joined.csv"
+    )
+)
+
+
+write_csv(
+    df_change_final,
+    file.path(
+        data_dir,
+        "risk_change.csv"
+    )
+)
